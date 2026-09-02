@@ -1,8 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { isAnimated, sampleTimeline, sampleTrack, tracksEnd } from './sample'
-import { EASE_LINEAR, EASE_SMOOTH } from './easing'
+import {
+  aggregateEasingAt,
+  easingFor,
+  EASE_LINEAR,
+  EASE_OUT,
+  EASE_OVERSHOOT,
+  EASE_SMOOTH,
+  normalizeEaseHandle,
+} from './easing'
 import { deviceTracksForMotion } from './presets'
-import { keyTimes, setKey, setValueAt, staticTrack } from './tracks'
+import {
+  keyTimes,
+  moveTrackValuesAt,
+  removeTrackValuesAt,
+  setKey,
+  setTrackValuesAt,
+  setTrackEasingAt,
+  setValueAt,
+  staticTrack,
+} from './tracks'
 import { createDefaultProject } from '../store/defaults'
 import type { Track } from '../store/schema'
 
@@ -61,6 +78,12 @@ describe('sampleTrack', () => {
     // Endpoints must still land exactly, whatever the curve.
     expect(sampleTrack(eased, 0, 0)).toBe(0)
     expect(sampleTrack(eased, 1, 0)).toBe(100)
+  })
+
+  it('supports a bounded overshoot curve without changing the track model', () => {
+    expect(easingFor(EASE_OVERSHOOT)(0.7)).toBeGreaterThan(1)
+    expect(easingFor(EASE_OVERSHOOT)(1)).toBe(1)
+    expect(normalizeEaseHandle([2, 9, -1, Number.NaN])).toEqual([1, 2, 0, 1])
   })
 
   it('is monotonic across a monotonic track', () => {
@@ -162,6 +185,65 @@ describe('track editing', () => {
     expect(track.keys[1].ease).toEqual(EASE_LINEAR)
   })
 
+  it('retimes only keys that exist at the aggregate source time', () => {
+    const tracks = {
+      x: {
+        keys: [
+          { t: 0, v: 0, ease: EASE_SMOOTH },
+          { t: 1, v: 10, ease: EASE_LINEAR },
+          { t: 2, v: 20, ease: EASE_SMOOTH },
+        ],
+      },
+      y: { keys: [{ t: 2, v: 8, ease: EASE_SMOOTH }] },
+      z: {
+        keys: [
+          { t: 1, v: 3, ease: EASE_SMOOTH },
+          { t: 3, v: 9, ease: EASE_LINEAR },
+        ],
+      },
+    }
+
+    const moved = moveTrackValuesAt(tracks, 1, 2)
+
+    expect(moved.x.keys).toEqual([
+      { t: 0, v: 0, ease: EASE_SMOOTH },
+      { t: 2, v: 10, ease: EASE_LINEAR },
+    ])
+    expect(moved.y).toBe(tracks.y)
+    expect(moved.z.keys).toEqual([
+      { t: 2, v: 3, ease: EASE_SMOOTH },
+      { t: 3, v: 9, ease: EASE_LINEAR },
+    ])
+  })
+
+  it('summarises and updates aggregate outgoing easing without touching end keys', () => {
+    const tracks = {
+      x: { keys: [
+        { t: 0, v: 0, ease: EASE_LINEAR },
+        { t: 2, v: 2, ease: EASE_SMOOTH },
+      ] },
+      y: { keys: [
+        { t: 0, v: 1, ease: EASE_SMOOTH },
+        { t: 1, v: 3, ease: EASE_LINEAR },
+      ] },
+      z: { keys: [{ t: 0, v: 4, ease: EASE_LINEAR }] },
+    }
+
+    expect(aggregateEasingAt(tracks, 0)).toEqual({ kind: 'mixed' })
+    const eased = setTrackEasingAt(tracks, 0, EASE_OUT)
+    expect(aggregateEasingAt(eased, 0)).toEqual({ kind: 'named', name: 'ease-out', ease: EASE_OUT })
+    expect(eased.x.keys[0].ease).toEqual(EASE_OUT)
+    expect(eased.y.keys[0].ease).toEqual(EASE_OUT)
+    expect(eased.z).toBe(tracks.z)
+    expect(setTrackEasingAt(eased, 2, EASE_LINEAR)).toBe(eased)
+
+    const custom = setTrackEasingAt(eased, 0, [0.2, -0.4, 0.8, 1.4])
+    expect(aggregateEasingAt(custom, 0)).toEqual({
+      kind: 'custom',
+      ease: [0.2, -0.4, 0.8, 1.4],
+    })
+  })
+
   it('editing a static channel does not accidentally create animation', () => {
     const track = setValueAt(staticTrack(5), 2.5, 9)
     expect(track.keys).toHaveLength(1)
@@ -177,5 +259,28 @@ describe('track editing', () => {
 
   it('collapses key times across channels into one column per time', () => {
     expect(keyTimes(deviceTracksForMotion('tilt-in', 4))).toEqual([0, 2.8])
+  })
+
+  it('writes a complete aggregate key without requiring a preset', () => {
+    const tracks = {
+      'position.x': staticTrack(0),
+      'position.y': staticTrack(1),
+    }
+    const keyed = setTrackValuesAt(tracks, 2, { 'position.x': 4, 'position.y': 5 })
+
+    expect(keyed['position.x'].keys.map((key) => [key.t, key.v])).toEqual([[0, 0], [2, 4]])
+    expect(keyed['position.y'].keys.map((key) => [key.t, key.v])).toEqual([[0, 1], [2, 5]])
+  })
+
+  it('deletes an aggregate key but preserves every channel\'s final value key', () => {
+    const tracks = {
+      'position.x': setKey(staticTrack(0), 2, 4),
+      'position.y': staticTrack(1),
+    }
+    const withoutEnd = removeTrackValuesAt(tracks, 2)
+
+    expect(withoutEnd['position.x'].keys).toHaveLength(1)
+    expect(withoutEnd['position.y']).toBe(tracks['position.y'])
+    expect(removeTrackValuesAt(withoutEnd, 0)).toBe(withoutEnd)
   })
 })

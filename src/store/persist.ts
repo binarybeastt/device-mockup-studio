@@ -2,6 +2,8 @@ import { unzipSync, zipSync, strToU8, strFromU8 } from 'fflate'
 import { getMedia, putMedia, pruneMedia } from '../media/storage'
 import { createDefaultProject, createDevice } from './defaults'
 import type { MediaRef, Project } from './schema'
+import { tracksEnd } from '../timeline/sample'
+import { alignDurationToFrames } from '../timeline/time'
 
 /**
  * `.mockup` = a zip of project.json plus a media/ folder (§5).
@@ -83,7 +85,7 @@ export function migrate(input: unknown): Project {
   if (!input || typeof input !== 'object') return defaults
   const raw = input as Partial<Project>
 
-  return {
+  const project: Project = {
     ...defaults,
     ...raw,
     version: 1,
@@ -92,6 +94,11 @@ export function migrate(input: unknown): Project {
     camera: { ...defaults.camera, ...raw.camera },
     devices: migrateDevices(raw, defaults),
   }
+  const contentEnd = Math.max(
+    tracksEnd(project.camera.tracks),
+    ...project.devices.map((device) => tracksEnd(device.transform)),
+  )
+  return { ...project, duration: alignDurationToFrames(project.duration, project.fps, contentEnd) }
 }
 
 type LegacySingleDevice = {

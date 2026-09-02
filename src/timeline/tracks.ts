@@ -43,6 +43,100 @@ export function removeKey(track: Track | undefined, t: number): Track {
 }
 
 /**
+ * Remove a key without leaving a scalar channel empty. A one-key track is
+ * the document's representation of a static value, so deleting its final
+ * key would silently replace the user's value with a sampler fallback.
+ */
+export function removeKeySafely(track: Track | undefined, t: number): Track | undefined {
+  if (!track || track.keys.length <= 1) return track
+  const next = removeKey(track, t)
+  return next.keys.length === track.keys.length ? track : next
+}
+
+/** Write a complete object pose at one time, including static channels. */
+export function setTrackValuesAt(
+  tracks: TrackSet,
+  t: number,
+  values: Record<string, number>,
+): TrackSet {
+  let changed = false
+  const next = { ...tracks }
+  for (const [channel, value] of Object.entries(values)) {
+    const track = setKey(tracks[channel], t, value)
+    next[channel] = track
+    if (track !== tracks[channel]) changed = true
+  }
+  return changed ? next : tracks
+}
+
+/** Remove every removable scalar key represented by one aggregate diamond. */
+export function removeTrackValuesAt(tracks: TrackSet, t: number): TrackSet {
+  let changed = false
+  const next: TrackSet = {}
+  for (const [channel, track] of Object.entries(tracks)) {
+    const result = removeKeySafely(track, t) ?? track
+    next[channel] = result
+    if (result !== track) changed = true
+  }
+  return changed ? next : tracks
+}
+
+/**
+ * Move only the scalar keys that actually exist at `from`.
+ *
+ * Aggregate diamonds are the union of several scalar tracks, so retiming one
+ * must not materialise unrelated channels. If a moved channel already has a
+ * key at `to`, the moved key wins atomically; channels without a source key
+ * remain byte-for-byte unchanged.
+ */
+export function moveTrackValuesAt(tracks: TrackSet, from: number, to: number): TrackSet {
+  if (Math.abs(from - to) < EPSILON) return tracks
+  let changed = false
+  const next: TrackSet = {}
+
+  for (const [channel, track] of Object.entries(tracks)) {
+    const source = track.keys.find((key) => Math.abs(key.t - from) < EPSILON)
+    if (!source) {
+      next[channel] = track
+      continue
+    }
+
+    const keys = track.keys
+      .filter((key) => Math.abs(key.t - from) >= EPSILON && Math.abs(key.t - to) >= EPSILON)
+      .concat({ ...source, t: to })
+      .sort((a, b) => a.t - b.t)
+    next[channel] = { keys }
+    changed = true
+  }
+
+  return changed ? next : tracks
+}
+
+/** Apply easing only where a key at `t` actually has an outgoing segment. */
+export function setTrackEasingAt(tracks: TrackSet, t: number, ease: EaseHandle): TrackSet {
+  let changed = false
+  const next: TrackSet = {}
+
+  for (const [channel, track] of Object.entries(tracks)) {
+    const index = track.keys.findIndex((key) => Math.abs(key.t - t) < EPSILON)
+    if (index < 0 || index >= track.keys.length - 1) {
+      next[channel] = track
+      continue
+    }
+    if (track.keys[index].ease.every((value, part) => Math.abs(value - ease[part]) < EPSILON)) {
+      next[channel] = track
+      continue
+    }
+    const keys = track.keys.slice()
+    keys[index] = { ...keys[index], ease: [...ease] as EaseHandle }
+    next[channel] = { keys }
+    changed = true
+  }
+
+  return changed ? next : tracks
+}
+
+/**
  * Set a channel's value at `t`. On a static (single-key) channel this edits
  * that key in place rather than adding a second one, so scrubbing the
  * timeline and typing in a number can't accidentally create animation.
@@ -74,4 +168,34 @@ export function keyTimes(tracks: TrackSet): number[] {
     for (const key of track.keys) seen.add(Math.round(key.t * 1e6) / 1e6)
   }
   return [...seen].sort((a, b) => a - b)
+}
+
+/**
+ * Times represented by at least one genuinely animated channel. Single-key
+ * tracks are static values, so exposing their storage point as a deletable
+ * timeline diamond would offer an action that intentionally cannot succeed.
+ */
+export function editableKeyTimes(tracks: TrackSet): number[] {
+  const seen = new Set<number>()
+  for (const track of Object.values(tracks)) {
+    if (track.keys.length <= 1) continue
+    for (const key of track.keys) seen.add(Math.round(key.t * 1e6) / 1e6)
+  }
+  return [...seen].sort((a, b) => a - b)
+}
+
+/** Whether an aggregate timeline diamond exists at `t` in any scalar channel. */
+export function hasKeyAtTime(tracks: TrackSet, t: number): boolean {
+  return Object.values(tracks).some((track) =>
+    track.keys.some((key) => Math.abs(key.t - t) < EPSILON),
+  )
+}
+
+/** Whether a visible, removable aggregate timeline diamond exists at `t`. */
+export function hasEditableKeyAtTime(tracks: TrackSet, t: number): boolean {
+  return Object.values(tracks).some(
+    (track) =>
+      track.keys.length > 1 &&
+      track.keys.some((key) => Math.abs(key.t - t) < EPSILON),
+  )
 }

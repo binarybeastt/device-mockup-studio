@@ -109,4 +109,19 @@ describe('migrate', () => {
       project.camera.tracks['position.x'].keys,
     )
   })
+
+  it('aligns fractional durations without cutting off existing keys', () => {
+    const project = createDefaultProject()
+    project.fps = 30
+    project.duration = 1.05
+    project.camera.tracks['position.x'].keys = [
+      { t: 0, v: 0, ease: [0, 0, 1, 1] },
+      { t: 1.1, v: 1, ease: [0, 0, 1, 1] },
+    ]
+
+    const migrated = migrate(project)
+    expect(migrated.duration * migrated.fps).toBeCloseTo(33)
+    expect(migrated.duration).toBeGreaterThanOrEqual(1.1)
+    expect(migrated.camera.tracks['position.x'].keys.at(-1)?.t).toBe(1.1)
+  })
 })

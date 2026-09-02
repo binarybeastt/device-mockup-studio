@@ -2,6 +2,7 @@ import { Zip, ZipPassThrough } from 'fflate'
 import { beginFrameExport, type FrameExportParams } from './frameRenderer'
 import type { SceneApplier } from './renderer'
 import { hasScreenVideos, seekScreenVideos } from '../media/screenVideo'
+import { frameCountForDuration } from '../timeline/time'
 
 /**
  * Frame times for a clip. `t = i / fps`, nothing else.
@@ -17,7 +18,7 @@ import { hasScreenVideos, seekScreenVideos } from '../media/screenVideo'
  * duplicate the loop point.
  */
 export function frameTimes(duration: number, fps: number): number[] {
-  const count = Math.max(1, Math.round(duration * fps))
+  const count = frameCountForDuration(duration, fps)
   return Array.from({ length: count }, (_, i) => i / fps)
 }
 

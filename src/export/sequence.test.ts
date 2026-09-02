@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { frameFileName, frameTimes } from './sequence'
+import { alignDurationToFrames } from '../timeline/time'
 
 describe('frameTimes', () => {
   it('derives every time from the frame index alone', () => {
@@ -28,6 +29,13 @@ describe('frameTimes', () => {
   it('rounds a duration that is not a whole number of frames', () => {
     expect(frameTimes(1.5, 30)).toHaveLength(45)
     expect(frameTimes(0.51, 30)).toHaveLength(15)
+  })
+
+  it('agrees with a frame-aligned exclusive duration boundary', () => {
+    const duration = alignDurationToFrames(1.05, 30)
+    expect(duration).toBeCloseTo(32 / 30)
+    expect(frameTimes(duration, 30)).toHaveLength(32)
+    expect(frameTimes(duration, 30).at(-1)).toBeCloseTo(31 / 30)
   })
 
   it('always renders at least one frame', () => {

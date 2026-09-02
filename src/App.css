@@ -163,7 +163,7 @@
 .app-body {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 316px;
+  grid-template-columns: minmax(0, 1fr) 316px;
   min-height: 0;
 }
 
@@ -273,7 +273,16 @@
   background: var(--chrome);
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.timeline:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
 }
 
 .timeline-toolbar {
@@ -282,6 +291,17 @@
   gap: 14px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.timeline-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.timeline-toolbar > * {
   flex-shrink: 0;
 }
 
@@ -300,6 +320,48 @@
 
 .play-btn:hover {
   background: var(--chrome-2);
+}
+
+.transport-nav {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.transport-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.transport-btn:last-child {
+  border-right: 0;
+}
+
+.transport-btn:hover:not(:disabled) {
+  background: var(--chrome-2);
+  color: var(--text);
+}
+
+.transport-btn:focus-visible {
+  position: relative;
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+.transport-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .add-animation {
@@ -326,6 +388,49 @@
   outline: none;
 }
 
+.keyframe-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.timeline-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.timeline-action:hover:not(:disabled) {
+  border-color: #3a3a44;
+  background: var(--chrome-2);
+  color: var(--text);
+}
+
+.timeline-action:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.timeline-action.icon-only {
+  width: 30px;
+  padding: 5px;
+}
+
+.timeline-action:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .time-readout {
   display: flex;
   align-items: center;
@@ -337,13 +442,24 @@
 }
 
 .time-now {
+  width: 82px;
   background: var(--chrome-2);
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 4px 9px;
   color: var(--text);
-  min-width: 62px;
   text-align: center;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-now:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.time-now.invalid {
+  border-color: var(--accent);
 }
 
 .time-duration {
@@ -358,10 +474,317 @@
 }
 
 .timeline-body {
+  position: relative;
+  container-type: inline-size;
   flex: 1;
   padding: 0 16px 12px;
   min-height: 0;
   overflow-y: auto;
+}
+
+.keyframe-context {
+  position: absolute;
+  right: 16px;
+  bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 6px 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--chrome-2);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.18);
+  z-index: 5;
+}
+
+.easing-glyph {
+  width: 28px;
+  height: 18px;
+  overflow: visible;
+}
+
+.easing-glyph path {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.keyframe-context-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 64px;
+  line-height: 1.15;
+}
+
+.keyframe-context-copy span {
+  color: var(--text-3);
+  font-size: 9.5px;
+}
+
+.keyframe-context-copy strong {
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.easing-select {
+  height: 24px;
+  min-width: 96px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--chrome);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+}
+
+.easing-select:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.easing-select:disabled {
+  color: var(--text-3);
+  opacity: 0.75;
+}
+
+.curve-editor-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--chrome);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.curve-editor-toggle:hover:not(:disabled),
+.curve-editor-toggle[aria-expanded='true'] {
+  border-color: #3a3a44;
+  color: var(--text);
+}
+
+.curve-editor-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.curve-editor-toggle:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.curve-editor {
+  position: absolute;
+  right: -6px;
+  bottom: -1px;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(110px, 220px) minmax(120px, 1fr);
+  grid-template-rows: auto 1fr auto;
+  gap: 6px 10px;
+  width: min(520px, calc(100cqi - 32px));
+  padding: 8px;
+  border: 1px solid #3a3a44;
+  border-radius: 7px;
+  background: var(--chrome);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
+}
+
+.curve-editor-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.curve-editor-header > div {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.curve-editor-header strong {
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.curve-editor-header span {
+  color: var(--text-3);
+  font-size: 9.5px;
+}
+
+.curve-editor-header button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.curve-editor-header button:hover {
+  background: var(--chrome-2);
+  color: var(--text);
+}
+
+.curve-graph {
+  grid-row: 2 / 4;
+  width: 100%;
+  height: 94px;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  background: #18191e;
+  touch-action: none;
+}
+
+.curve-axis {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.curve-control {
+  stroke: #555968;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.curve-path {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.curve-handle {
+  fill: #fff;
+  stroke: var(--blue);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.curve-handle:active {
+  cursor: grabbing;
+}
+
+.curve-values {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  align-self: center;
+}
+
+.curve-values label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-3);
+  font-size: 9.5px;
+}
+
+.curve-values input {
+  min-width: 0;
+  width: 100%;
+  height: 25px;
+  padding: 3px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--chrome-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.curve-values input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.curve-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.curve-editor-actions button {
+  height: 25px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+
+.curve-editor-actions button:hover {
+  background: var(--chrome-2);
+  color: var(--text);
+}
+
+.curve-editor-actions .primary {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+
+@container (max-width: 360px) {
+  .keyframe-context {
+    left: 8px;
+    right: 8px;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) minmax(72px, 96px) 26px;
+    gap: 5px;
+  }
+
+  .keyframe-context-copy {
+    min-width: 0;
+  }
+
+  .keyframe-context-copy span,
+  .keyframe-context-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .easing-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .curve-editor {
+    left: -1px;
+    right: -1px;
+    width: auto;
+    grid-template-columns: minmax(90px, 1fr) minmax(105px, 1.15fr);
+    grid-template-rows: auto 1fr auto;
+    gap: 5px 6px;
+  }
+
+  .curve-graph {
+    grid-row: 2 / 4;
+    height: 84px;
+  }
+
+  .curve-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .ruler {
@@ -400,6 +823,10 @@
   color: var(--text-2);
 }
 
+.track-row.active .track-label {
+  color: var(--text);
+}
+
 .track-lane {
   position: relative;
   flex: 1;
@@ -416,34 +843,99 @@
 
 .keyframe {
   position: absolute;
-  top: 50%;
-  width: 9px;
-  height: 9px;
-  margin-left: -4.5px;
-  background: var(--blue);
-  transform: translateY(-50%) rotate(45deg);
-  border-radius: 1.5px;
+  top: 0;
+  width: 18px;
+  height: 100%;
+  margin-left: -9px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: ew-resize;
+  z-index: 2;
 }
 
-.playhead {
+.keyframe.dragging {
+  z-index: 4;
+}
+
+.keyframe::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 1.5px;
+  background: var(--blue);
+  transform: translate(-50%, -50%) rotate(45deg);
+  transition: transform 0.12s, background 0.12s, box-shadow 0.12s;
+}
+
+.keyframe:hover::before {
+  transform: translate(-50%, -50%) rotate(45deg) scale(1.18);
+}
+
+.keyframe:focus-visible {
+  outline: none;
+}
+
+.keyframe:focus-visible::before,
+.keyframe.selected::before {
+  background: #ffffff;
+  box-shadow: 0 0 0 2px var(--blue), 0 0 0 4px rgba(61, 125, 255, 0.25);
+}
+
+.playhead-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 74px;
+  pointer-events: none;
+}
+
+.playhead-line {
   position: absolute;
   top: 0;
   bottom: 0;
-  margin-left: 74px;
   width: 1px;
   background: var(--accent);
-  pointer-events: none;
+}
+
+.playhead-handle {
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: ew-resize;
+  pointer-events: auto;
+  touch-action: none;
+  z-index: 3;
+}
+
+.playhead-handle:focus-visible {
+  outline: none;
 }
 
 .playhead-grip {
   position: absolute;
-  top: -4px;
+  top: 8px;
   left: 50%;
   transform: translateX(-50%);
   width: 9px;
   height: 9px;
   border-radius: 2px;
   background: var(--accent);
+}
+
+.playhead-handle:focus-visible .playhead-grip {
+  box-shadow: 0 0 0 2px rgba(240, 86, 45, 0.35);
 }
 
 /* ------------------------------------------------------------ inspector */

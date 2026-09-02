@@ -1,6 +1,26 @@
 import { useEffect } from 'react'
 import { useProjectStore } from '../store/project'
 
+const NATIVE_SPACE_TARGETS = [
+  'button',
+  'a[href]',
+  'summary',
+  '[role="button"]',
+  '[role="menuitem"]',
+  '[role="option"]',
+  '[role="slider"]',
+].join(', ')
+
+type ClosestTarget = EventTarget & {
+  closest?: (selector: string) => Element | null
+}
+
+/** Keep Space available to controls whose native keyboard activation depends on it. */
+export function reservesSpaceForNativeActivation(target: EventTarget | null): boolean {
+  const candidate = target as ClosestTarget | null
+  return typeof candidate?.closest === 'function' && candidate.closest(NATIVE_SPACE_TARGETS) !== null
+}
+
 /**
  * Global keyboard shortcuts.
  *
@@ -30,6 +50,7 @@ export function useShortcuts() {
         return
       }
       if (e.key === ' ') {
+        if (reservesSpaceForNativeActivation(e.target)) return
         e.preventDefault()
         store.setPlaying(!store.playing)
       }
